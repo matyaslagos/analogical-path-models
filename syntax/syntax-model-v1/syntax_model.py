@@ -364,7 +364,7 @@ def mix_and_reduce(model, weighted_sequences, analogy_length):
         best_left_contexts = nlargest(10, left_anl_contexts[anl].items(), key=itemgetter(1))
         best_right_contexts = nlargest(10, right_anl_contexts[anl].items(), key=itemgetter(1))
         context_dict[anl] = {'left': best_left_contexts, 'right': best_right_contexts}
-    return nlargest(50, anls.items(), key=itemgetter(1))
+    return nlargest(10, anls.items(), key=itemgetter(1))
 
 def recursive_analogies(model, sequence, lookup_dict=None):
     # Initialise dynamic lookup dict
@@ -390,7 +390,7 @@ def recursive_analogies(model, sequence, lookup_dict=None):
             anl_sequences = split_analogies(model, prefix, suffix, rec_prefixes, rec_suffixes)
             for anl_sequence, score in anl_sequences:
                 anl_seq_scores[anl_sequence] += score
-        best_anls = nlargest(50, anl_seq_scores.items(), key=itemgetter(1))
+        best_anls = nlargest(10, anl_seq_scores.items(), key=itemgetter(1))
         lookup_dict[sequence] = best_anls
         return best_anls
 
@@ -400,18 +400,18 @@ def split_analogies(model, prefix, suffix, rec_prefixes, rec_suffixes):
         anls = bilateral_analogies(model, rec_prefix)
         for anl, score in anls:
             prefix_anls[anl] += score * weight
-    sorted_prefix_anls = nlargest(50, prefix_anls.items(), key=itemgetter(1))
+    sorted_prefix_anls = nlargest(10, prefix_anls.items(), key=itemgetter(1))
     suffix_anls = defaultdict(float)
     for rec_suffix, weight in rec_suffixes[:10]:
         anls = bilateral_analogies(model, rec_suffix)
         for anl, score in anls:
             suffix_anls[anl] += score * weight
-    sorted_suffix_anls = nlargest(50, suffix_anls.items(), key=itemgetter(1))
+    sorted_suffix_anls = nlargest(10, suffix_anls.items(), key=itemgetter(1))
     anls = defaultdict(float)
     for prefix_info, suffix_info in product(sorted_prefix_anls, sorted_suffix_anls):
         prefix_anl, prefix_score = prefix_info
         suffix_anl, suffix_score = suffix_info
         if model.freq(prefix_anl + suffix_anl):
-            score = combine_split_score(prefix_score, suffix_score)
+            score = combine_split_scores(prefix_score, suffix_score)
             anls[prefix_anl + suffix_anl] += score
-    return nlargest(50, anls.items(), key=itemgetter(1))
+    return nlargest(10, anls.items(), key=itemgetter(1))
