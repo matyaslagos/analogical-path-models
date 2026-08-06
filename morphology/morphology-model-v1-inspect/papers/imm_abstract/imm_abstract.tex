@@ -1,0 +1,65 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage[english]{babel}
+\usepackage{style_files/mystyle}
+
+\usepackage[hang,flushmargin]{footmisc}
+\let\footnoterule\relax
+\pagenumbering{gobble}
+
+\title{\fontsize{13}{16}\selectfont Exemplar-based Inference of Inflected Nominal Word Forms \\ from Limited Data in Hungarian}
+\author{}
+\date{\vspace{-3em}}
+
+\begin{document}
+
+\maketitle
+
+\textbf{Introduction.} In exemplar-based theories of morphology, the production of novel inflected word forms consists in drawing inferences from similarity relations among attested word forms. Although there have been attempts at explicitly formulating this conception, a detailed theory still remains to be worked out (as concluded in Lindsay-Smith et al.'s (2024: 226) overview). In our presentation we propose a simple algorithm that infers novel word forms by computing the reliability with which attested word forms can be constructed by substituting the endings of other attested word forms. We test this method on Hungarian nominal inflection,\footnote{Hungarian nominal inflection is worth modeling due to its richness: stems as well as suffixes may alternate, and the free combination of four different types of suffixes (18 cases, plurality or non-plurality, 6 possessive personal suffixes, and possessorness or non-possessorness) yields 432 possible forms for each noun (disregarding cases of defectivity).}
+describe the cases in which it works and the cases in which it fails, and outline ideas for improving it. We find that our method performs surprisingly well, correctly predicting around 94\% of unseen word forms when trained on a human-scale corpus.
+
+\textbf{The inference algorithm.} The task of our algorithm is to infer inflected word forms for paradigm cells of Hungarian nominal lemmas based on training data containing triples of the form \textit{lemma} -- \textit{paradigm cell tag} -- \textit{word form}. E.g. the following triple could be a data point in the training data: \textsc{ház} (\say{house}) -- \textsc{\{poss.1pl, nom\}} -- \textit{házunk} (\say{our house}).
+
+We outline our algorithm through an example. Suppose that the lemma \textsc{kosár} (\say{basket}) is attested in the training data, and the task is to infer its unattested \{\textsc{pl, poss.1pl, nom}\} word form \textit{kosaraink} (\say{our baskets}). The first step of the algorithm is to collect the potential analogical bases for guessing the novel word form: for each attested paradigm cell tag \textit{t} of the target lemma \textsc{kosár}, we collect all lemmas that are attested with both (a) this tag \textit{t} and (b) the target tag \{\textsc{pl, poss.1pl, nom}\}. Suppose that with this step we find the following lemmas and their attested word forms (\textsc{ine} is the inessive case meaning \say{in something}):
+\begin{center}
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{rllll}
+Translation & Lemma & \{\textsc{ine}\} & \{\textsc{pl, nom}\} & \{\textsc{pl, poss.1pl, nom}\} \\
+\say{basket} & \textsc{kosár} & \textit{kosárban} & \textit{kosarak} & \textit{?} \\
+\say{sock} & \textsc{zokni} & \textit{zokniban} & \textit{--} & \textit{zoknijaink} \\
+\say{apartment} & \textsc{lakás} & \textit{lakásban} & \textit{--} & \textit{lakásaink} \\
+\say{bird} & \textsc{madár} & \textit{--} & \textit{madarak} & \textit{madaraink} \\
+\say{telephone} & \textsc{telefon} & \textit{--} & \textit{telefonok} & \textit{telefonjaink} \\
+\say{tent} & \textsc{sátor} & \textit{--} & \textit{sátrak} & \textit{sátraink} \\
+\end{tabular}
+\end{center}
+Our algorithm now turns to assessing how reliably we can infer the word forms of the target tag \{\textsc{pl, poss.1pl, nom}\} from the word forms of the analogical base tags \{\textsc{pl, nom}\} and \{\textsc{ine}\} by substituting word form endings. Looking at the \{\textsc{ine}\} word forms, we see that in the case of \textit{zokniban}, we can substitute the ending \textit{-ban} by the ending \textit{-jaink} to get the word form \textit{zoknijaink}. However, in the case of \textit{lakásban}, this substitution would yield the incorrect form \textit{*lakásjaink} --- in this case, we would have to substitute \textit{-ban} by \textit{-aink}. Substituting \textit{-ban} is thus not a reliable way of deriving the target word form: we have to substitute it sometimes by \textit{-jaink} and sometimes by \textit{-aink}. In contrast, looking at the \{\textsc{pl, nom}\} forms, we see that substituting the ending \textit{-rak} by the ending \textit{-raink} always yields the correct form, making it a reliable substitution (as is substituting \textit{-ak} by \textit{-aink}).
+
+We quantify reliability as follows. If our target tag is $ g $, then for tag $ t $ and pair of endings $ e, e' $, the notation $ {P_{t \to g}(e \to e')} $ expresses the reliability of inferring the word forms of $ g $ from the word forms of $ t $ by substituting in them the ending $ e $ by the ending $ e' $. We define $ P_{t \to g}(e \to e') $ as the type frequency of substituting $ e $ by $ e' $ divided by the number of all substitutions of $ e $ by some ending; that is, given word forms $ w $ ranging over the word forms of tag $ t $, we define:
+\begin{equation*}
+P_{t \to g}(e \to e') = \frac{|\{w : \textrm{substituting } e \textrm{ in } w \textrm{ by } e' \textrm{ yields inflected form of } g\}|}{|\{w : \textrm{substituting } e \textrm{ in } w \textrm{ by some ending yields inflected form of } g\}|}
+\end{equation*}
+Thus in our example above, with $ g = \{\textsc{pl, poss.1pl, nom}\} $, we have:
+\begin{itemize}
+  \item $ P_{\{\textsc{ine}\} \to g}(\textit{-ban} \to \textit{-jaink}) = P_{\{\textsc{ine}\} \to g}(\textit{-ban} \to \textit{-aink}) = 0.5 $, and
+  \item $ P_{\{\textsc{pl, nom}\} \to g}(\textit{-rak} \to \textit{-raink}) = 1 $.
+\end{itemize}
+
+Finally, we define the goodness of a word form for the target tag as the sum of the reliability scores of the substitutions that produce this word form. E.g. applying the substitution \textit{-rak} $ \to $ \textit{-raink} to the \{\textsc{pl, nom}\} form \textit{kosarak} of the lemma \textsc{kosár} yields the word form \textit{kosaraink}, so this substitution adds its reliability score $ 1 $ to the goodness of \textit{kosaraink}; other substitutions yielding the same form may increase its goodness further. (This does not define a probability distribution over produced word forms, but we can easily obtain one by normalizing the scores.) The word form predicted by the algorithm is the word form with the highest goodness score.
+
+\textbf{Testing.} We tested our method using ten-fold cross-validation on 93449 distinct nominal word forms from the Hungarian Webcorpus 2.0 (Nemeskey, 2020).\footnote{This was the set of all distinct nominal word form types attested in a $ \sim $1.5-million-token subcorpus.} It was able to correctly predict the target word form for about 94\% of test items on average (variance $ 6.7 \cdot 10^{-6} $ across folds). This percentage remained just above 90\% even when training data size was reduced from around 84000 word forms to around 40000 word forms (variance $ 9.6 \cdot10^{-6} $ across folds).
+
+\textbf{Discussion.} These results should not be taken to mean that this method is a plausible general inference method for inflected word forms. We have not carried out conclusive tests for languages other than Hungarian, and even in the case of Hungarian, the method has clear shortcomings. It often predicts wrongly when rare variants of suffixes (e.g. the \textit{-ök} variant of the plural suffix) should be applied, and it cannot make indirect predictions among paradigm cells: it can fail to predict a word form of a lemma even when it correctly predicts some of its other word forms from which the former word form could easily be inferred.
+
+Nevertheless, the method's relative success provides clues about what licenses linguistic analogies. In particular, it questions the importance of token and type frequencies in making predictions about word forms. The method ignores the token frequencies of exemplars, and even the type frequencies of ending substitutions are lost in calculating their reliability. For example, if an ending has only one possible substitute (as \textit{-rak} $ \to $ \textit{-raink} above), then the reliability of this substitution is 1 regardless of how many distinct word-form types it is attested in (\textit{madaraink} and \textit{sátraink} for \textit{-rak} $ \to $ \textit{-raink}). This does not appear to derail the predictions, even though it would make sense to trust higher type frequencies more.
+
+{\footnotesize
+\textbf{References}
+\vspace{-0.3em}
+
+Lindsay-Smith, E., Baerman, M., Beniamine, S., Sims-Williams, H., and Round, E. R. (2024). Analogy in inflection. \textit{Annual Review of Linguistics, 10}, 211--231. \href{https://doi.org/10.1146/annurev-linguistics-030521-040935}{\uline{https://doi.org/10.1146/annurev-linguistics-030521-040935}}
+\vspace{-0.4em}
+
+Nemeskey, D. M. (2020). \textit{Natural language processing methods for language modeling} [Doctoral dissertation, Eötvös Loránd University].
+
+}
+\end{document}
